@@ -1,24 +1,22 @@
 package gzy
 
 import (
-	"fmt"
 	"net/http"
 )
 
-type HandlerFunc func(w http.ResponseWriter, r *http.Request)
+type HandlerFunc func(ctx *Context)
 
 // Engine 实现了 http.Handler 接口
 type Engine struct {
-	router map[string]HandlerFunc
+	router *router
 }
 
 func New() *Engine {
-	return &Engine{router: make(map[string]HandlerFunc)}
+	return &Engine{router: newRouter()}
 }
 
 func (engine *Engine) addRoute(method string, pattern string, handler HandlerFunc) {
-	key := method + "-" + pattern
-	engine.router[key] = handler
+	engine.router.addRoute(method, pattern, handler)
 }
 
 // GET 定义添加GET请求的方法
@@ -37,10 +35,6 @@ func (engine *Engine) Run(addr string) (err error) {
 }
 
 func (engine *Engine) ServeHTTP(w http.ResponseWriter, req *http.Request) {
-	key := req.Method + "-" + req.URL.Path
-	if handler, ok := engine.router[key]; ok {
-		handler(w, req)
-	} else {
-		_, _ = fmt.Fprintf(w, "404 NOT FOUND: %s\n", req.URL)
-	}
+	c := newContext(w, req)
+	engine.router.handler(c)
 }
