@@ -18,6 +18,9 @@ type Context struct {
 	Params map[string]string
 	// 响应码
 	StatusCode int
+	// 中间件
+	handlers []HandlerFunc
+	index    int
 }
 
 func newContext(w http.ResponseWriter, req *http.Request) *Context {
@@ -26,9 +29,11 @@ func newContext(w http.ResponseWriter, req *http.Request) *Context {
 		Req:    req,
 		Path:   req.URL.Path,
 		Method: req.Method,
+		index:  -1,
 	}
 }
 
+// Param 获取请求参数
 func (c *Context) Param(key string) string {
 	value, _ := c.Params[key]
 	return value
@@ -44,6 +49,7 @@ func (c *Context) Query(key string) string {
 	return c.Req.URL.Query().Get(key)
 }
 
+// Status 设置状态码
 func (c *Context) Status(code int) {
 	c.StatusCode = code
 	c.Writer.WriteHeader(code)
@@ -71,6 +77,7 @@ func (c *Context) Json(code int, obj any) {
 	}
 }
 
+// Data 响应返回
 func (c *Context) Data(code int, data []byte) {
 	c.Status(code)
 	_, _ = c.Writer.Write(data)
@@ -81,4 +88,13 @@ func (c *Context) HTML(code int, html string) {
 	c.SetHeader("Content-Type", "text/html")
 	c.Status(code)
 	_, _ = c.Writer.Write([]byte(html))
+}
+
+// Next 中间件移交控制权
+func (c *Context) Next() {
+	c.index++
+	s := len(c.handlers)
+	for ; c.index < s; c.index++ {
+		c.handlers[c.index](c)
+	}
 }
