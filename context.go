@@ -9,6 +9,7 @@ import (
 type H map[string]any
 
 type Context struct {
+	engine *Engine
 	// http 对象
 	Writer http.ResponseWriter
 	Req    *http.Request
@@ -67,8 +68,14 @@ func (c *Context) String(code int, format string, values ...any) {
 	_, _ = c.Writer.Write([]byte(fmt.Sprintf(format, values...)))
 }
 
-// Json 响应返回Json
-func (c *Context) Json(code int, obj any) {
+// Data 响应返回
+func (c *Context) Data(code int, data []byte) {
+	c.Status(code)
+	_, _ = c.Writer.Write(data)
+}
+
+// JSON 响应返回JSON
+func (c *Context) JSON(code int, obj any) {
 	c.SetHeader("Content-Type", "application/json")
 	c.Status(code)
 	encoder := json.NewEncoder(c.Writer)
@@ -77,17 +84,18 @@ func (c *Context) Json(code int, obj any) {
 	}
 }
 
-// Data 响应返回
-func (c *Context) Data(code int, data []byte) {
-	c.Status(code)
-	_, _ = c.Writer.Write(data)
+func (c *Context) Fail(code int, err string) {
+	c.index = len(c.handlers)
+	c.JSON(code, H{"message": err})
 }
 
 // HTML 响应返回HTML网页
-func (c *Context) HTML(code int, html string) {
+func (c *Context) HTML(code int, name string, data interface{}) {
 	c.SetHeader("Content-Type", "text/html")
 	c.Status(code)
-	_, _ = c.Writer.Write([]byte(html))
+	if err := c.engine.htmlTemplates.ExecuteTemplate(c.Writer, name, data); err != nil {
+		c.Fail(500, err.Error())
+	}
 }
 
 // Next 中间件移交控制权
